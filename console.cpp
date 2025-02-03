@@ -1,5 +1,6 @@
 #include "console.h"
 #include <iostream>
+#include <iomanip>
 
 void Console::Output(
     CompClubConfig config,
@@ -7,32 +8,44 @@ void Console::Output(
     std::vector<Table*> tables
 )
 {
-    std::cout << config.startTime << std::endl;
+    std::cout << FormatTime(config.startTime) << std::endl;
     
-    int count = 0;
-    Event* curEvent = events[count];
-    while (curEvent != nullptr)
+    for (auto &&event : events)
     {
-        std::cout << curEvent->time << " " << curEvent->id << " ";
+        std::cout << FormatTime(event->time) << " " << event->id << " ";
         
-        if (curEvent->id == 13)
+        if (event->id == 13)
         {
-            std::cout << curEvent->error.name;
+            std::cout << event->error.name;
         }
         else
         {
-            std::cout << curEvent->client->name << " " << curEvent->tableId;
+            std::cout << event->client->name;
+
+            if (event->id == 2 || event->id == 12)
+                std::cout << " " << event->tableId;
+            
         }
         std::cout << std::endl;
-        
-        curEvent = events[count++];
     }
     
-    std::cout << config.endTime << std::endl;
+    std::cout << FormatTime(config.endTime) << std::endl;
 
-    // for (size_t i = 0; i < config.tableCount; i++)
-    // {
-    //     std::cout << tables[i]->id << tables[i]->income 
-    //         << tables[i]->usageTime << std::endl;
-    // }
+    for (auto &&table : tables)
+    {
+        std::cout << table->id << " "
+            << table->income << " "
+            << FormatTime(table->usageTime)
+            << std::endl;
+    }
+}
+
+std::string Console::FormatTime(int time) {
+    std::ostringstream oss;
+    int hours = time / 60; // Часы
+    int mins = time % 60;  // Минуты
+    oss << std::setw(2) << std::setfill('0') << hours << ":" 
+        << std::setw(2) << std::setfill('0') << mins;
+    
+    return oss.str();
 }

@@ -10,4 +10,7 @@ public:
         std::vector<Event*> events,
         std::vector<Table*> tables
     );
+
+private:
+    static std::string FormatTime(int time);
 };

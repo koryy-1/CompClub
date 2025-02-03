@@ -1,16 +1,41 @@
 #include <algorithm>
+#include <cmath>
 #include "trackingSystem.h"
+#include "utils.h"
 
 TrackingSystem::TrackingSystem(CompClubConfig config, std::vector<Event*> events)
     : m_config(config), m_events(events)
 {
+    for (size_t i = 1; i <= config.tableCount; i++)
+    {
+        Table* table = new Table();
+        table->id = i;
+        m_tables.push_back(table);
+    }
+    
     Handle();
+
+    CalculateIncome();
+}
+
+TrackingSystem::~TrackingSystem()
+{
+    for (size_t i = 0; i < m_generatedEvents.size(); i++)
+    {
+        delete m_generatedEvents[i];
+    }
+    for (size_t i = 0; i < m_tables.size(); i++)
+    {
+        delete m_tables[i];
+    }
+    for (size_t i = 0; i < m_clientList.size(); i++)
+    {
+        delete m_clientList[i];
+    }
 }
 
 void TrackingSystem::Handle()
 {
-    // на каджой итерации идет копирование (мб лучше перемещать?) события 
-    // из m_events в m_generatedEvents с генерацией новых событий
     for (size_t i = 0; i < m_events.size(); i++)
     {
         // сначала идет набор клиентов
@@ -24,15 +49,13 @@ void TrackingSystem::Handle()
                 Event* event = CreateErrorEvent(m_events[i]->time, "NotOpenYet");
                 m_generatedEvents.push_back(event);
             }
-            else if (FindIndex(m_clientList, m_events[i]->client) != -1)
+            else if (Utils::FindClientIndexByName(m_clientList, m_events[i]->client->name) != -1)
             {
                 Event* event = CreateErrorEvent(m_events[i]->time, "YouShallNotPass");
                 m_generatedEvents.push_back(event);
             }
             else
             {
-                // тут сначала проверить что клиент уже есть в списке 
-                // (на случай если 1 и тот же клиент приходит несколько раз в день)
                 m_events[i]->client->isInsideClub = true;
                 m_clientList.push_back(m_events[i]->client);
             }
@@ -40,23 +63,15 @@ void TrackingSystem::Handle()
         }
         case 2:
         {
-            // auto iterClient = std::find_if(m_admissionList.begin(), m_admissionList.end(), 
-            //     [&](Client* client) { return client->name == m_events[i]->client->name; } );
-            // int index = iterClient - m_admissionList.begin();
-            int clientIndex = FindIndex(m_clientList, m_events[i]->client);
+            int clientIndex = Utils::FindClientIndexByName(m_clientList, m_events[i]->client->name);
             if (clientIndex == -1)
             {
                 Event* event = CreateErrorEvent(m_events[i]->time, "ClientUnknown");
                 m_generatedEvents.push_back(event);
-                // здесь нужно учитывать что клиент может несколько раз приходить в комп клуб
-                // а надо ли
                 break;
             }
-            auto iterTable = std::find_if(m_tables.begin(), m_tables.end(), 
-                [&](Table* table) { return table->id == m_events[i]->tableId && !table->isBusy; } );
-                
-            int tableIndex = iterTable - m_tables.begin();
-            if (iterTable == m_tables.end()) // if not found
+
+            if (m_tables[m_events[i]->tableId - 1]->isBusy)
             {
                 Event* event = CreateErrorEvent(m_events[i]->time, "PlaceIsBusy");
                 m_generatedEvents.push_back(event);
@@ -67,10 +82,8 @@ void TrackingSystem::Handle()
                 // если клиент сменяет стол, то помечаем предыдущий как не занятый
                 if (m_clientList[clientIndex]->occupiedTable)
                 {
-                    m_tables[m_clientList[clientIndex]->tableUsageSessions.back()->tableId]->isBusy = false;
-                    m_tables[tableIndex]->isBusy = true;
-                    // todo: учесть скок времени юзался предыдущий стол
-                    // todo: придется учитывать скок времени за каким столом клиент провел
+                    m_tables[m_clientList[clientIndex]->tableUsageSessions.back()->tableId - 1]->isBusy = false;
+                    m_tables[m_events[i]->tableId - 1]->isBusy = true;
                     m_clientList[clientIndex]->tableUsageSessions.back()->endTime = m_events[i]->time;
 
                     TableUsageSession* session = new TableUsageSession();
@@ -80,7 +93,7 @@ void TrackingSystem::Handle()
                 }
                 else
                 {
-                    m_tables[tableIndex]->isBusy = true;
+                    m_tables[m_events[i]->tableId - 1]->isBusy = true;
 
                     // тут придется каждый стол учитывать
                     TableUsageSession* session = new TableUsageSession();
@@ -95,16 +108,15 @@ void TrackingSystem::Handle()
         // потом идет набор очереди
         case 3:
         {
-            int clientIndex = FindIndex(m_clientList, m_events[i]->client);
+            int clientIndex = Utils::FindClientIndexByName(m_clientList, m_events[i]->client->name);
             if (clientIndex == -1)
             {
                 Event* event = CreateErrorEvent(m_events[i]->time, "ClientUnknown");
                 m_generatedEvents.push_back(event);
                 break;
             }
-            auto iterTable = std::find_if(m_tables.begin(), m_tables.end(), 
-                [&](Table* table) { return table->id == m_events[i]->tableId && !table->isBusy; } );
-            if (iterTable != m_tables.end()) // if not found
+
+            if (Utils::FindTableIndex(m_tables, false) != -1)
             {
                 Event* event = CreateErrorEvent(m_events[i]->time, "ICanWaitNoLonger!");
                 m_generatedEvents.push_back(event);
@@ -114,7 +126,6 @@ void TrackingSystem::Handle()
             {
                 Event* event = CreateEvent(m_events[i]->time, 11, m_events[i]->client->name, 0);
                 m_generatedEvents.push_back(event);
-                // пометить флаг что клиент ушел из клуба
                 m_clientList[clientIndex]->isInsideClub = false;
                 break;
             }
@@ -126,7 +137,7 @@ void TrackingSystem::Handle()
         }
         case 4:
         {
-            int clientIndex = FindIndex(m_clientList, m_events[i]->client);
+            int clientIndex = Utils::FindClientIndexByName(m_clientList, m_events[i]->client->name);
             if (clientIndex == -1)
             {
                 Event* event = CreateErrorEvent(m_events[i]->time, "ClientUnknown");
@@ -141,12 +152,12 @@ void TrackingSystem::Handle()
 
                 if (m_queue.empty())
                 {
-                    m_tables[m_clientList[clientIndex]->tableUsageSessions.back()->tableId]->isBusy = false;
+                    m_tables[m_clientList[clientIndex]->tableUsageSessions.back()->tableId - 1]->isBusy = false;
                 }
                 else
                 {
                     Client* client = m_queue.front();
-                    int clientFromQueueIndex = FindIndex(m_clientList, client); // мб поиск с условием
+                    int clientFromQueueIndex = Utils::FindClientIndexByName(m_clientList, client->name);
                     m_queue.pop();
 
                     TableUsageSession* session = new TableUsageSession();
@@ -186,6 +197,7 @@ void TrackingSystem::Handle()
         {
             filteredClientList[i]->tableUsageSessions.back()->endTime = m_config.endTime;
             filteredClientList[i]->occupiedTable = false;
+            m_tables[filteredClientList[i]->tableUsageSessions.back()->tableId - 1]->isBusy = false;
         }
         // сгенерировать событие 11 для каждого клиента
         Event* event = CreateEvent(m_config.endTime, 11, filteredClientList[i]->name, 0);
@@ -200,8 +212,6 @@ void TrackingSystem::Handle()
 
     // вставить элементы временного вектора в m_generatedEvents
     m_generatedEvents.insert(m_generatedEvents.end(), tempEvents.begin(), tempEvents.end());
-
-    // гдето мув семантика должна идти, перемещение указателя на Client с vector на queue
 }
 
 std::vector<Table*> TrackingSystem::GetTables()
@@ -214,26 +224,6 @@ std::vector<Event*> TrackingSystem::GetEvents()
     return m_generatedEvents;
 }
 
-template <typename T>
-int TrackingSystem::FindIndex(const std::vector<T>& container, T value)
-{
-    auto it = std::find(container.begin(), container.end(), value);
-    if (it != container.end())
-        return it - container.begin();
-    
-    return -1;
-}
-
-// template <typename T>
-// int TrackingSystem::FindIndex(const std::vector<T>& container, std::function<bool(T)> condition)
-// {
-//     auto it = std::find_if(container.begin(), container.end(), condition);
-//     if (it != container.end())
-//         return it - container.begin();
-    
-//     return -1;
-// }
-
 Event* TrackingSystem::CreateEvent(int time, int id, const std::string& clientName, int tableId)
 {
     Event* event = new Event();
@@ -243,7 +233,7 @@ Event* TrackingSystem::CreateEvent(int time, int id, const std::string& clientNa
     Client* client = new Client();
     client->name = clientName;
     event->client = client;
-    
+
     event->tableId = tableId;
     return event;
 }
@@ -259,12 +249,21 @@ Event* TrackingSystem::CreateErrorEvent(int time, const std::string& errorName)
 
 void TrackingSystem::CalculateIncome()
 {
-    for (size_t i = 0; i < m_config.tableCount; i++)
+    for (auto &&table : m_tables)
     {
-        Table* table = new Table();
-        table->id == i + 1;
-        // table->income = CalcIncome();
-        // table->usageTime = CalcUsageTime();
-        m_tables[i] = table;
+        int usageTime = 0;
+        for (auto &&client : m_clientList)
+        {
+            for (size_t i = 0; i < client->tableUsageSessions.size(); i++)
+            {
+                if (client->tableUsageSessions[i]->tableId == table->id)
+                {
+                    usageTime += client->tableUsageSessions[i]->endTime - client->tableUsageSessions[i]->startTime;
+                }
+            }
+        }
+        
+        table->usageTime = usageTime;
+        table->income = std::ceil(usageTime / 60.0) * m_config.hourlyCost;
     }
 }
