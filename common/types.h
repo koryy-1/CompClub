@@ -3,6 +3,17 @@
 #include <string>
 #include <vector>
 
+enum EventId
+{
+    ClientArrival = 1,
+    ClientSatDownAtTable = 2,
+    ClientIsWaiting = 3,
+    ClientIsGone = 4,
+    ClientIsGoneGenerated = 11,
+    ClientSatDownAtTableGenerated = 12,
+    ErrorOccurred = 13,
+};
+
 struct CompClubConfig
 {
     int tableCount;

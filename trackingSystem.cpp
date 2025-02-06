@@ -42,7 +42,7 @@ void TrackingSystem::Handle()
         m_generatedEvents.push_back(m_events[i]);
         switch (m_events[i]->id)
         {
-        case 1:
+        case ClientArrival:
         {
             if (m_config.startTime > m_events[i]->time)
             {
@@ -61,7 +61,7 @@ void TrackingSystem::Handle()
             }
             break;
         }
-        case 2:
+        case ClientSatDownAtTable:
         {
             int clientIndex = Utils::FindClientIndexByName(m_clientList, m_events[i]->client->name);
             if (clientIndex == -1)
@@ -106,7 +106,7 @@ void TrackingSystem::Handle()
             break;
         }
         // потом идет набор очереди
-        case 3:
+        case ClientIsWaiting:
         {
             int clientIndex = Utils::FindClientIndexByName(m_clientList, m_events[i]->client->name);
             if (clientIndex == -1)
@@ -124,7 +124,7 @@ void TrackingSystem::Handle()
             }
             if (m_queue.size() == m_config.tableCount)
             {
-                Event* event = CreateEvent(m_events[i]->time, 11, m_events[i]->client->name, 0);
+                Event* event = CreateEvent(m_events[i]->time, ClientIsGoneGenerated, m_events[i]->client->name, 0);
                 m_generatedEvents.push_back(event);
                 m_clientList[clientIndex]->isInsideClub = false;
                 break;
@@ -135,7 +135,7 @@ void TrackingSystem::Handle()
             }
             break;
         }
-        case 4:
+        case ClientIsGone:
         {
             int clientIndex = Utils::FindClientIndexByName(m_clientList, m_events[i]->client->name);
             if (clientIndex == -1)
@@ -171,7 +171,7 @@ void TrackingSystem::Handle()
 
                     Event* event = CreateEvent(
                         m_events[i]->time,
-                        12,
+                        ClientSatDownAtTableGenerated,
                         m_clientList[clientFromQueueIndex]->name,
                         m_clientList[clientFromQueueIndex]->tableUsageSessions.back()->tableId
                     );
@@ -200,7 +200,7 @@ void TrackingSystem::Handle()
             m_tables[filteredClientList[i]->tableUsageSessions.back()->tableId - 1]->isBusy = false;
         }
         // сгенерировать событие 11 для каждого клиента
-        Event* event = CreateEvent(m_config.endTime, 11, filteredClientList[i]->name, 0);
+        Event* event = CreateEvent(m_config.endTime, ClientIsGoneGenerated, filteredClientList[i]->name, 0);
         // вставить событие во временный вектор
         tempEvents.push_back(event);
         // пометить флаг что клиент ушел из клуба
@@ -242,7 +242,7 @@ Event* TrackingSystem::CreateErrorEvent(int time, const std::string& errorName)
 {
     Event* event = new Event();
     event->time = time;
-    event->id = 13;
+    event->id = ErrorOccurred;
     event->error.name = errorName;
     return event;
 }
