@@ -13,20 +13,20 @@ git clone https://github.com/koryy-1/CompClub.git
 cd CompClub
 ```
 
-3. Создать папку bin
+3. Собрать проект
 
 ```sh
-mkdir bin
-```
-
-4. Скомпилировать исходники
-
-```sh
-g++ main.cpp fileReader.cpp parser.cpp trackingSystem.cpp console.cpp utils.cpp -o bin/main
+make
 ```
 
 5. Запустить скомпилированный файл
 
 ```sh
 ./bin/main input_data/example.txt
+```
+
+## Очистка проекта
+
+```sh
+make clean
 ```
