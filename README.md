@@ -19,7 +19,7 @@ cd CompClub
 make
 ```
 
-5. Запустить скомпилированный файл
+4. Запустить скомпилированный файл
 
 ```sh
 ./bin/main input_data/example.txt
