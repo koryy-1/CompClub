@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 
 enum EventId
 {
@@ -34,7 +35,7 @@ struct Client
     std::string name;
     bool occupiedTable; // флаг что клиент занял стол
     bool isInsideClub; // флаг что клиент ушел из клуба
-    std::vector<TableUsageSession*> tableUsageSessions;
+    std::vector<std::unique_ptr<TableUsageSession>> tableUsageSessions;
 };
 
 struct Error
@@ -47,14 +48,14 @@ struct Event
     int id;
     int time;
     Error error;
-    Client* client;
+    std::string clientName;
     int tableId; 
 };
 
 struct EventLog
 {
     CompClubConfig config;
-    std::vector<Event*> events;
+    std::vector<std::unique_ptr<Event>> events;
 };
 
 struct Table

@@ -6,24 +6,24 @@
 class TrackingSystem
 {
 public:
-    TrackingSystem(CompClubConfig config, std::vector<Event*> events);
+    TrackingSystem(const CompClubConfig& config, std::vector<std::unique_ptr<Event>> events);
     ~TrackingSystem();
 
-    void Handle();
-
-    std::vector<Table*> GetTables();
-    std::vector<Event*> GetEvents();
+    const std::vector<std::unique_ptr<Table>>& GetTables() const;
+    const std::vector<std::unique_ptr<Event>>& GetEvents() const;
 
 private:
-    Event* CreateEvent(int time, int id, const std::string& clientName, int tableId);
-    Event* CreateErrorEvent(int time, const std::string& errorName);
+    void InitializeTables();
+    void Handle();
     void CalculateIncome();
+    std::unique_ptr<Event> CreateEvent(int time, int id, const std::string& clientName, int tableId);
+    std::unique_ptr<Event> CreateErrorEvent(int time, const std::string& errorName);
 
     CompClubConfig m_config;
-    std::vector<Event*> m_events;
-    std::vector<Event*> m_generatedEvents;
-    std::vector<Table*> m_tables; // в m_tables index является номером стола (id)
+    std::vector<std::unique_ptr<Event>>& m_events;
+    std::vector<std::unique_ptr<Event>> m_generatedEvents;
+    std::vector<std::unique_ptr<Table>> m_tables; // в m_tables index является номером стола (id)
 
-    std::vector<Client*> m_clientList; // список клиентов
-    std::queue<Client*> m_queue; // очередь клиентов
+    std::vector<std::shared_ptr<Client>> m_clientList; // список клиентов
+    std::queue<std::shared_ptr<Client>> m_queue; // очередь клиентов
 };

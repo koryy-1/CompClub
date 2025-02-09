@@ -3,7 +3,7 @@
 #include "parser.h"
 #include "common/types.h"
 
-EventLog* Parser::Parse(std::vector<std::string> content)
+std::unique_ptr<EventLog> Parser::Parse(const std::vector<std::string>& content)
 {
     CompClubConfig config;
 
@@ -22,7 +22,7 @@ EventLog* Parser::Parse(std::vector<std::string> content)
 
     config.hourlyCost = stoi(content[2]);
 
-    std::vector<Event*> events;
+    std::vector<std::unique_ptr<Event>> events;
     for (size_t i = 3; i < content.size(); i++)
     {
         std::istringstream iss(content[i]);
@@ -36,23 +36,20 @@ EventLog* Parser::Parse(std::vector<std::string> content)
             throw std::runtime_error("Ошибка в строке " + std::to_string(i + 1) + ": " + content[i]);
         }
 
-        Event* event = new Event();
+        std::unique_ptr<Event> event = std::make_unique<Event>();
         event->time = ParseTime(fields[0]);
         event->id = stoi(fields[1]);
-
-        Client* client = new Client();
-        client->name = fields[2];
-        event->client = client;
+        event->clientName = fields[2];
         if (event->id == 2)
             event->tableId = stoi(fields[3]);
         
-        events.push_back(event);
+        events.push_back(std::move(event));
     }
 
-    EventLog* eventLog = new EventLog();
+    std::unique_ptr<EventLog> eventLog = std::make_unique<EventLog>();
 
     eventLog->config = config;
-    eventLog->events = events;
+    eventLog->events = std::move(events);
 
     return eventLog;
 }

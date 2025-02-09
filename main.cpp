@@ -12,8 +12,7 @@ int main(int argc, char *argv[])
     std::vector<std::string> content = FileReader::GetContent(argv[1]);
 
     // парсинг данных
-    // todo: использовать unique_ptr
-    EventLog* eventLog;
+    std::unique_ptr<EventLog> eventLog;
     try
     {
         eventLog = Parser::Parse(content);
@@ -25,14 +24,14 @@ int main(int argc, char *argv[])
     }
 
     // генерация новых событий
-    TrackingSystem* trackingSystem = new TrackingSystem(eventLog->config, eventLog->events);
+    std::unique_ptr<TrackingSystem> trackingSystem = std::make_unique<TrackingSystem>(
+        eventLog->config,
+        std::move(eventLog->events)
+    );
 
-    std::vector<Event*> generatedEvents = trackingSystem->GetEvents();
-    std::vector<Table*> tables = trackingSystem->GetTables();
+    const std::vector<std::unique_ptr<Event>>& generatedEvents = trackingSystem->GetEvents();
+    const std::vector<std::unique_ptr<Table>>& tables = trackingSystem->GetTables();
 
     // вывод новых событий
     Console::Output(eventLog->config, generatedEvents, tables);
-
-    delete trackingSystem;
-    delete eventLog;
 }

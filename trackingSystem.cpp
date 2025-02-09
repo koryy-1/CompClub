@@ -3,34 +3,25 @@
 #include "trackingSystem.h"
 #include "utils.h"
 
-TrackingSystem::TrackingSystem(CompClubConfig config, std::vector<Event*> events)
+TrackingSystem::TrackingSystem(const CompClubConfig& config, std::vector<std::unique_ptr<Event>> events)
     : m_config(config), m_events(events)
 {
-    for (size_t i = 1; i <= config.tableCount; i++)
-    {
-        Table* table = new Table();
-        table->id = i;
-        m_tables.push_back(table);
-    }
+    InitializeTables();
     
     Handle();
 
     CalculateIncome();
 }
 
-TrackingSystem::~TrackingSystem()
+TrackingSystem::~TrackingSystem() { }
+
+void TrackingSystem::InitializeTables()
 {
-    for (size_t i = 0; i < m_generatedEvents.size(); i++)
+    for (size_t i = 1; i <= m_config.tableCount; i++)
     {
-        delete m_generatedEvents[i];
-    }
-    for (size_t i = 0; i < m_tables.size(); i++)
-    {
-        delete m_tables[i];
-    }
-    for (size_t i = 0; i < m_clientList.size(); i++)
-    {
-        delete m_clientList[i];
+        std::unique_ptr<Table> table = std::make_unique<Table>();
+        table->id = i;
+        m_tables.push_back(std::move(table));
     }
 }
 
@@ -39,42 +30,45 @@ void TrackingSystem::Handle()
     for (size_t i = 0; i < m_events.size(); i++)
     {
         // сначала идет набор клиентов
-        m_generatedEvents.push_back(m_events[i]);
-        switch (m_events[i]->id)
+        Event& curEvent = *m_events[i];
+        m_generatedEvents.push_back(std::move(m_events[i]));
+        switch (curEvent.id)
         {
         case ClientArrival:
         {
-            if (m_config.startTime > m_events[i]->time)
+            if (m_config.startTime > curEvent.time)
             {
-                Event* event = CreateErrorEvent(m_events[i]->time, "NotOpenYet");
-                m_generatedEvents.push_back(event);
+                std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "NotOpenYet");
+                m_generatedEvents.push_back(std::move(event));
             }
-            else if (Utils::FindClientIndexByName(m_clientList, m_events[i]->client->name) != -1)
+            else if (Utils::FindClientIndexByName(m_clientList, curEvent.clientName) != -1)
             {
-                Event* event = CreateErrorEvent(m_events[i]->time, "YouShallNotPass");
-                m_generatedEvents.push_back(event);
+                std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "YouShallNotPass");
+                m_generatedEvents.push_back(std::move(event));
             }
             else
             {
-                m_events[i]->client->isInsideClub = true;
-                m_clientList.push_back(m_events[i]->client);
+                std::unique_ptr<Client> client = std::make_unique<Client>();
+                client->name = curEvent.clientName;
+                client->isInsideClub = true;
+                m_clientList.push_back(std::move(client));
             }
             break;
         }
         case ClientSatDownAtTable:
         {
-            int clientIndex = Utils::FindClientIndexByName(m_clientList, m_events[i]->client->name);
+            int clientIndex = Utils::FindClientIndexByName(m_clientList, curEvent.clientName);
             if (clientIndex == -1)
             {
-                Event* event = CreateErrorEvent(m_events[i]->time, "ClientUnknown");
-                m_generatedEvents.push_back(event);
+                std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "ClientUnknown");
+                m_generatedEvents.push_back(std::move(event));
                 break;
             }
 
-            if (m_tables[m_events[i]->tableId - 1]->isBusy)
+            if (m_tables[curEvent.tableId - 1]->isBusy)
             {
-                Event* event = CreateErrorEvent(m_events[i]->time, "PlaceIsBusy");
-                m_generatedEvents.push_back(event);
+                std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "PlaceIsBusy");
+                m_generatedEvents.push_back(std::move(event));
                 break;
             }
             else
@@ -83,23 +77,23 @@ void TrackingSystem::Handle()
                 if (m_clientList[clientIndex]->occupiedTable)
                 {
                     m_tables[m_clientList[clientIndex]->tableUsageSessions.back()->tableId - 1]->isBusy = false;
-                    m_tables[m_events[i]->tableId - 1]->isBusy = true;
-                    m_clientList[clientIndex]->tableUsageSessions.back()->endTime = m_events[i]->time;
+                    m_tables[curEvent.tableId - 1]->isBusy = true;
+                    m_clientList[clientIndex]->tableUsageSessions.back()->endTime = curEvent.time;
 
-                    TableUsageSession* session = new TableUsageSession();
-                    session->startTime = m_events[i]->time;
-                    session->tableId = m_events[i]->tableId;
-                    m_clientList[clientIndex]->tableUsageSessions.push_back(session);
+                    std::unique_ptr<TableUsageSession> session = std::make_unique<TableUsageSession>();
+                    session->startTime = curEvent.time;
+                    session->tableId = curEvent.tableId;
+                    m_clientList[clientIndex]->tableUsageSessions.push_back(std::move(session));
                 }
                 else
                 {
-                    m_tables[m_events[i]->tableId - 1]->isBusy = true;
+                    m_tables[curEvent.tableId - 1]->isBusy = true;
 
                     // тут придется каждый стол учитывать
-                    TableUsageSession* session = new TableUsageSession();
-                    session->startTime = m_events[i]->time;
-                    session->tableId = m_events[i]->tableId;
-                    m_clientList[clientIndex]->tableUsageSessions.push_back(session);
+                    std::unique_ptr<TableUsageSession> session = std::make_unique<TableUsageSession>();
+                    session->startTime = curEvent.time;
+                    session->tableId = curEvent.tableId;
+                    m_clientList[clientIndex]->tableUsageSessions.push_back(std::move(session));
                     m_clientList[clientIndex]->occupiedTable = true;
                 }
             }
@@ -108,24 +102,24 @@ void TrackingSystem::Handle()
         // потом идет набор очереди
         case ClientIsWaiting:
         {
-            int clientIndex = Utils::FindClientIndexByName(m_clientList, m_events[i]->client->name);
+            int clientIndex = Utils::FindClientIndexByName(m_clientList, curEvent.clientName);
             if (clientIndex == -1)
             {
-                Event* event = CreateErrorEvent(m_events[i]->time, "ClientUnknown");
-                m_generatedEvents.push_back(event);
+                std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "ClientUnknown");
+                m_generatedEvents.push_back(std::move(event));
                 break;
             }
 
             if (Utils::FindTableIndex(m_tables, false) != -1)
             {
-                Event* event = CreateErrorEvent(m_events[i]->time, "ICanWaitNoLonger!");
-                m_generatedEvents.push_back(event);
+                std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "ICanWaitNoLonger!");
+                m_generatedEvents.push_back(std::move(event));
                 break;
             }
             if (m_queue.size() == m_config.tableCount)
             {
-                Event* event = CreateEvent(m_events[i]->time, ClientIsGoneGenerated, m_events[i]->client->name, 0);
-                m_generatedEvents.push_back(event);
+                std::unique_ptr<Event> event = CreateEvent(curEvent.time, ClientIsGoneGenerated, curEvent.clientName, 0);
+                m_generatedEvents.push_back(std::move(event));
                 m_clientList[clientIndex]->isInsideClub = false;
                 break;
             }
@@ -137,16 +131,16 @@ void TrackingSystem::Handle()
         }
         case ClientIsGone:
         {
-            int clientIndex = Utils::FindClientIndexByName(m_clientList, m_events[i]->client->name);
+            int clientIndex = Utils::FindClientIndexByName(m_clientList, curEvent.clientName);
             if (clientIndex == -1)
             {
-                Event* event = CreateErrorEvent(m_events[i]->time, "ClientUnknown");
-                m_generatedEvents.push_back(event);
+                std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "ClientUnknown");
+                m_generatedEvents.push_back(std::move(event));
                 break;
             }
             else
             {
-                m_clientList[clientIndex]->tableUsageSessions.back()->endTime = m_events[i]->time;
+                m_clientList[clientIndex]->tableUsageSessions.back()->endTime = curEvent.time;
                 m_clientList[clientIndex]->occupiedTable = false;
                 m_clientList[clientIndex]->isInsideClub = false;
 
@@ -156,26 +150,23 @@ void TrackingSystem::Handle()
                 }
                 else
                 {
-                    Client* client = m_queue.front();
-                    int clientFromQueueIndex = Utils::FindClientIndexByName(m_clientList, client->name);
+                    std::shared_ptr<Client> clientFromQueue = m_queue.front();
                     m_queue.pop();
 
-                    TableUsageSession* session = new TableUsageSession();
-                    session->startTime = m_events[i]->time;
+                    std::unique_ptr<TableUsageSession> session = std::make_unique<TableUsageSession>();
+                    session->startTime = curEvent.time;
                     session->tableId = m_clientList[clientIndex]->tableUsageSessions.back()->tableId;
-                    m_clientList[clientFromQueueIndex]->tableUsageSessions.push_back(session);
+                    
+                    clientFromQueue->tableUsageSessions.push_back(std::move(session));
+                    clientFromQueue->occupiedTable = true;
 
-                    m_clientList[clientFromQueueIndex]->tableUsageSessions.back()->startTime = m_events[i]->time;
-                    m_clientList[clientFromQueueIndex]->tableUsageSessions.back()->tableId = m_clientList[clientIndex]->tableUsageSessions.back()->tableId;
-                    m_clientList[clientFromQueueIndex]->occupiedTable = true;
-
-                    Event* event = CreateEvent(
-                        m_events[i]->time,
+                    std::unique_ptr<Event> event = CreateEvent(
+                        curEvent.time,
                         ClientSatDownAtTableGenerated,
-                        m_clientList[clientFromQueueIndex]->name,
-                        m_clientList[clientFromQueueIndex]->tableUsageSessions.back()->tableId
+                        clientFromQueue->name,
+                        clientFromQueue->tableUsageSessions.back()->tableId
                     );
-                    m_generatedEvents.push_back(event);
+                    m_generatedEvents.push_back(std::move(event));
                 }
             }
             break;
@@ -186,11 +177,16 @@ void TrackingSystem::Handle()
     }
 
     // выгнать всех оставшихся клиентов через 11 событие, при этом отсортировать клиентов в алф порядке
-    std::vector<Client*> filteredClientList;
-    std::copy_if (m_clientList.begin(), m_clientList.end(), std::back_inserter(filteredClientList), 
-        [](Client* client) { return client->isInsideClub; } );
+    std::vector<std::shared_ptr<Client>> filteredClientList;
+    
+    std::copy_if(
+        m_clientList.begin(),
+        m_clientList.end(),
+        std::back_inserter(filteredClientList),
+        [](const std::shared_ptr<Client>& client) { return client->isInsideClub; }
+    );
 
-    std::vector<Event*> tempEvents;
+    std::vector<std::unique_ptr<Event>> tempEvents;
     for (size_t i = 0; i < filteredClientList.size(); i++)
     {
         if (filteredClientList[i]->occupiedTable)
@@ -200,47 +196,49 @@ void TrackingSystem::Handle()
             m_tables[filteredClientList[i]->tableUsageSessions.back()->tableId - 1]->isBusy = false;
         }
         // сгенерировать событие 11 для каждого клиента
-        Event* event = CreateEvent(m_config.endTime, ClientIsGoneGenerated, filteredClientList[i]->name, 0);
+        std::unique_ptr<Event> event = CreateEvent(m_config.endTime, ClientIsGoneGenerated, filteredClientList[i]->name, 0);
         // вставить событие во временный вектор
-        tempEvents.push_back(event);
+        tempEvents.push_back(std::move(event));
         // пометить флаг что клиент ушел из клуба
         filteredClientList[i]->isInsideClub = false;
     }
     // отсортировать полученный вектор в алфавитном порядке имен клиентов
     std::sort(tempEvents.begin(), tempEvents.end(), 
-        [] (Event* left, Event* right) { return left->client->name < right->client->name; } );
+        [] (const std::unique_ptr<Event>& left, const std::unique_ptr<Event>& right) {
+            return left->clientName < right->clientName; 
+        });
 
     // вставить элементы временного вектора в m_generatedEvents
-    m_generatedEvents.insert(m_generatedEvents.end(), tempEvents.begin(), tempEvents.end());
+    m_generatedEvents.insert(
+        m_generatedEvents.end(),
+        std::make_move_iterator(tempEvents.begin()),
+        std::make_move_iterator(tempEvents.end())
+    );
 }
 
-std::vector<Table*> TrackingSystem::GetTables()
+const std::vector<std::unique_ptr<Table>>& TrackingSystem::GetTables() const
 {
     return m_tables;
 }
 
-std::vector<Event*> TrackingSystem::GetEvents()
+const std::vector<std::unique_ptr<Event>>& TrackingSystem::GetEvents() const
 {
     return m_generatedEvents;
 }
 
-Event* TrackingSystem::CreateEvent(int time, int id, const std::string& clientName, int tableId)
+std::unique_ptr<Event> TrackingSystem::CreateEvent(int time, int id, const std::string& clientName, int tableId)
 {
-    Event* event = new Event();
+    std::unique_ptr<Event> event = std::make_unique<Event>();
     event->time = time;
     event->id = id;
-
-    Client* client = new Client();
-    client->name = clientName;
-    event->client = client;
-
+    event->clientName = clientName;
     event->tableId = tableId;
     return event;
 }
 
-Event* TrackingSystem::CreateErrorEvent(int time, const std::string& errorName)
+std::unique_ptr<Event> TrackingSystem::CreateErrorEvent(int time, const std::string& errorName)
 {
-    Event* event = new Event();
+    std::unique_ptr<Event> event = std::make_unique<Event>();
     event->time = time;
     event->id = ErrorOccurred;
     event->error.name = errorName;

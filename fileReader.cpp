@@ -2,7 +2,7 @@
 #include <fstream>
 #include "fileReader.h"
 
-std::vector<std::string> FileReader::GetContent(char* filePath)
+std::vector<std::string> FileReader::GetContent(const char* filePath)
 {
     std::ifstream file(filePath);
     if (!file.is_open())

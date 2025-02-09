@@ -3,9 +3,9 @@
 #include <iomanip>
 
 void Console::Output(
-    CompClubConfig config,
-    std::vector<Event*> events,
-    std::vector<Table*> tables
+    const CompClubConfig& config,
+    const std::vector<std::unique_ptr<Event>>& events,
+    const std::vector<std::unique_ptr<Table>>& tables
 )
 {
     std::cout << FormatTime(config.startTime) << std::endl;
@@ -20,7 +20,7 @@ void Console::Output(
         }
         else
         {
-            std::cout << event->client->name;
+            std::cout << event->clientName;
 
             if (event->id == 2 || event->id == 12)
                 std::cout << " " << event->tableId;

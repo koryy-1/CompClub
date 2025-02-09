@@ -19,21 +19,23 @@ namespace Utils {
     //     return -1;
     // }
 
-    int FindClientIndexByName(const std::vector<Client*>& clients, const std::string& name)
+    int FindClientIndexByName(const std::vector<std::shared_ptr<Client>>& clients, const std::string& name)
     {
-        auto it = std::find_if(clients.begin(), clients.end(), 
-            [&name](Client* client) { return client->name == name; });
+        auto it = std::find_if(
+            std::make_move_iterator(clients.begin()),
+            std::make_move_iterator(clients.end()),
+            [&name](const std::shared_ptr<Client>& client) { return client->name == name; });
 
-        if (it != clients.end())
-            return it - clients.begin();
+        if (it != std::make_move_iterator(clients.end()))
+            return it - std::make_move_iterator(clients.begin());
         
         return -1;
     }
 
-    int FindTableIndex(const std::vector<Table*>& tables, bool isBusy = false)
+    int FindTableIndex(const std::vector<std::unique_ptr<Table>>& tables, bool isBusy = false)
     {
         auto it = std::find_if(tables.begin(), tables.end(), 
-            [&isBusy](Table* table) { return table->isBusy == isBusy; });
+            [&isBusy](const std::unique_ptr<Table>& table) { return table->isBusy == isBusy; });
 
         if (it != tables.end())
             return it - tables.begin();

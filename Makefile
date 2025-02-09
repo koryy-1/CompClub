@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-c -Wall
+CFLAGS=-c -Wall -g
 LDFLAGS=
 SOURCES=main.cpp fileReader.cpp parser.cpp trackingSystem.cpp console.cpp utils.cpp
 OBJECTS=$(SOURCES:%.cpp=bin/%.o)

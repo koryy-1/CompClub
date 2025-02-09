@@ -6,9 +6,9 @@ class Console
 {
 public:
     static void Output(
-        CompClubConfig config,
-        std::vector<Event*> events,
-        std::vector<Table*> tables
+        const CompClubConfig& config,
+        const std::vector<std::unique_ptr<Event>>& events,
+        const std::vector<std::unique_ptr<Table>>& tables
     );
 
 private:

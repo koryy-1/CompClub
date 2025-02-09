@@ -12,6 +12,6 @@ namespace Utils {
     // template <typename T>
     // int FindIndex(const std::vector<T>& container, std::predicate condition);
 
-    int FindClientIndexByName(const std::vector<Client*>& clients, const std::string& name);
-    int FindTableIndex(const std::vector<Table*>& tables, bool isBusy);
+    int FindClientIndexByName(const std::vector<std::shared_ptr<Client>>& clients, const std::string& name);
+    int FindTableIndex(const std::vector<std::unique_ptr<Table>>& tables, bool isBusy);
 }
