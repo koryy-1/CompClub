@@ -17,14 +17,18 @@ enum EventId
 
 struct CompClubConfig
 {
-    int tableCount;
+    uint32_t tableCount;
+    uint32_t hourlyCost;
     int startTime;
     int endTime;
-    int hourlyCost;
 };
 
 struct TableUsageSession
 {
+    TableUsageSession() {}
+    TableUsageSession(int id, int startT, int endT)
+        : tableId(id), startTime(startT), endTime(endT) {}
+
     int tableId;
     int startTime;
     int endTime;
@@ -33,9 +37,8 @@ struct TableUsageSession
 struct Client
 {
     std::string name;
-    bool occupiedTable; // флаг что клиент занял стол
     bool isInsideClub; // флаг что клиент ушел из клуба
-    std::vector<std::unique_ptr<TableUsageSession>> tableUsageSessions;
+    uint32_t occupiedTableId; // номер стола, занятого клиентом, если клиент не занимает стол, то = 0
 };
 
 struct Error
@@ -49,7 +52,7 @@ struct Event
     int time;
     Error error;
     std::string clientName;
-    int tableId; 
+    uint32_t tableId;
 };
 
 struct EventLog
@@ -64,4 +67,5 @@ struct Table
     bool isBusy;
     int income;
     int usageTime;
+    TableUsageSession usageSession;
 };

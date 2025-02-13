@@ -6,10 +6,7 @@ std::vector<std::string> FileReader::GetContent(const char* filePath)
 {
     std::ifstream file(filePath);
     if (!file.is_open())
-    {
-        std::cout << "file is not open" << std::endl;
-        exit(1);
-    }
+        throw std::runtime_error("Ошибка: файл не удалось открыть");
     
     std::string line;
     std::vector<std::string> content;

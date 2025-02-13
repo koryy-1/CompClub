@@ -12,26 +12,20 @@ int main(int argc, char *argv[])
     std::vector<std::string> content = FileReader::GetContent(argv[1]);
 
     // парсинг данных
-    std::unique_ptr<EventLog> eventLog;
-    try
-    {
-        eventLog = Parser::Parse(content);
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-        exit(1);
-    }
+    std::unique_ptr<Parser> parser = std::make_unique<Parser>(content);
+
+    CompClubConfig config = parser->GetConfig();
+    std::vector<std::unique_ptr<Event>> events = parser->GetEvents();
 
     // генерация новых событий
     std::unique_ptr<TrackingSystem> trackingSystem = std::make_unique<TrackingSystem>(
-        eventLog->config,
-        std::move(eventLog->events)
+        config,
+        std::move(events)
     );
 
     const std::vector<std::unique_ptr<Event>>& generatedEvents = trackingSystem->GetEvents();
     const std::vector<std::unique_ptr<Table>>& tables = trackingSystem->GetTables();
 
     // вывод новых событий
-    Console::Output(eventLog->config, generatedEvents, tables);
+    Console::Output(config, generatedEvents, tables);
 }

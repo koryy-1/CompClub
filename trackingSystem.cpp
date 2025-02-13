@@ -4,7 +4,7 @@
 #include "utils.h"
 
 TrackingSystem::TrackingSystem(const CompClubConfig& config, std::vector<std::unique_ptr<Event>> events)
-    : m_config(config), m_events(events)
+    : m_config(config), m_events(std::move(events))
 {
     InitializeTables();
     
@@ -12,8 +12,6 @@ TrackingSystem::TrackingSystem(const CompClubConfig& config, std::vector<std::un
 
     CalculateIncome();
 }
-
-TrackingSystem::~TrackingSystem() { }
 
 void TrackingSystem::InitializeTables()
 {
@@ -74,27 +72,31 @@ void TrackingSystem::Handle()
             else
             {
                 // если клиент сменяет стол, то помечаем предыдущий как не занятый
-                if (m_clientList[clientIndex]->occupiedTable)
+                if (m_clientList[clientIndex]->occupiedTableId != 0)
                 {
-                    m_tables[m_clientList[clientIndex]->tableUsageSessions.back()->tableId - 1]->isBusy = false;
-                    m_tables[curEvent.tableId - 1]->isBusy = true;
-                    m_clientList[clientIndex]->tableUsageSessions.back()->endTime = curEvent.time;
+                    m_tables[m_clientList[clientIndex]->occupiedTableId - 1]->isBusy = false;
+                    m_clientList[clientIndex]->occupiedTableId = curEvent.tableId;
 
-                    std::unique_ptr<TableUsageSession> session = std::make_unique<TableUsageSession>();
-                    session->startTime = curEvent.time;
-                    session->tableId = curEvent.tableId;
-                    m_clientList[clientIndex]->tableUsageSessions.push_back(std::move(session));
+                    m_tables[curEvent.tableId - 1]->isBusy = true;
+                    m_tables[curEvent.tableId - 1]->usageSession.endTime = curEvent.time;
+
+                    std::unique_ptr<TableUsageSession> session = std::make_unique<TableUsageSession>(
+                        curEvent.tableId,
+                        m_tables[curEvent.tableId - 1]->usageSession.startTime,
+                        m_tables[curEvent.tableId - 1]->usageSession.endTime
+                    );
+                    m_tableUsageSessions.push_back(std::move(session));
+
+                    m_tables[curEvent.tableId - 1]
+                        ->usageSession = TableUsageSession(curEvent.tableId, curEvent.time, 0);
                 }
                 else
                 {
                     m_tables[curEvent.tableId - 1]->isBusy = true;
+                    m_clientList[clientIndex]->occupiedTableId = curEvent.tableId;
 
-                    // тут придется каждый стол учитывать
-                    std::unique_ptr<TableUsageSession> session = std::make_unique<TableUsageSession>();
-                    session->startTime = curEvent.time;
-                    session->tableId = curEvent.tableId;
-                    m_clientList[clientIndex]->tableUsageSessions.push_back(std::move(session));
-                    m_clientList[clientIndex]->occupiedTable = true;
+                    m_tables[curEvent.tableId - 1]
+                        ->usageSession = TableUsageSession(curEvent.tableId, curEvent.time, 0);
                 }
             }
             break;
@@ -140,31 +142,39 @@ void TrackingSystem::Handle()
             }
             else
             {
-                m_clientList[clientIndex]->tableUsageSessions.back()->endTime = curEvent.time;
-                m_clientList[clientIndex]->occupiedTable = false;
+                uint32_t curTableId = m_clientList[clientIndex]->occupiedTableId;
+
+                m_tables[curTableId - 1]->usageSession.endTime = curEvent.time;
+
+                std::unique_ptr<TableUsageSession> session = std::make_unique<TableUsageSession>(
+                    curTableId,
+                    m_tables[curTableId - 1]->usageSession.startTime,
+                    m_tables[curTableId - 1]->usageSession.endTime
+                );
+                m_tableUsageSessions.push_back(std::move(session));
+
+                m_clientList[clientIndex]->occupiedTableId = 0;
                 m_clientList[clientIndex]->isInsideClub = false;
 
                 if (m_queue.empty())
                 {
-                    m_tables[m_clientList[clientIndex]->tableUsageSessions.back()->tableId - 1]->isBusy = false;
+                    m_tables[curTableId - 1]->isBusy = false;
                 }
                 else
                 {
                     std::shared_ptr<Client> clientFromQueue = m_queue.front();
                     m_queue.pop();
 
-                    std::unique_ptr<TableUsageSession> session = std::make_unique<TableUsageSession>();
-                    session->startTime = curEvent.time;
-                    session->tableId = m_clientList[clientIndex]->tableUsageSessions.back()->tableId;
-                    
-                    clientFromQueue->tableUsageSessions.push_back(std::move(session));
-                    clientFromQueue->occupiedTable = true;
+                    m_tables[curTableId - 1]
+                        ->usageSession = TableUsageSession(curTableId, curEvent.time, 0);
+
+                    clientFromQueue->occupiedTableId = curTableId;
 
                     std::unique_ptr<Event> event = CreateEvent(
                         curEvent.time,
                         ClientSatDownAtTableGenerated,
                         clientFromQueue->name,
-                        clientFromQueue->tableUsageSessions.back()->tableId
+                        curTableId
                     );
                     m_generatedEvents.push_back(std::move(event));
                 }
@@ -189,19 +199,31 @@ void TrackingSystem::Handle()
     std::vector<std::unique_ptr<Event>> tempEvents;
     for (size_t i = 0; i < filteredClientList.size(); i++)
     {
-        if (filteredClientList[i]->occupiedTable)
+        if (filteredClientList[i]->occupiedTableId != 0)
         {
-            filteredClientList[i]->tableUsageSessions.back()->endTime = m_config.endTime;
-            filteredClientList[i]->occupiedTable = false;
-            m_tables[filteredClientList[i]->tableUsageSessions.back()->tableId - 1]->isBusy = false;
+            m_tables[filteredClientList[i]->occupiedTableId - 1]->usageSession.endTime = m_config.endTime;
+
+            std::unique_ptr<TableUsageSession> session = std::make_unique<TableUsageSession>(
+                filteredClientList[i]->occupiedTableId,
+                m_tables[filteredClientList[i]->occupiedTableId - 1]->usageSession.startTime,
+                m_tables[filteredClientList[i]->occupiedTableId - 1]->usageSession.endTime
+            );
+            m_tableUsageSessions.push_back(std::move(session));
+
+            m_tables[filteredClientList[i]->occupiedTableId - 1]->isBusy = false;
+            filteredClientList[i]->occupiedTableId = 0;
         }
+
         // сгенерировать событие 11 для каждого клиента
         std::unique_ptr<Event> event = CreateEvent(m_config.endTime, ClientIsGoneGenerated, filteredClientList[i]->name, 0);
+
         // вставить событие во временный вектор
         tempEvents.push_back(std::move(event));
+
         // пометить флаг что клиент ушел из клуба
         filteredClientList[i]->isInsideClub = false;
     }
+    
     // отсортировать полученный вектор в алфавитном порядке имен клиентов
     std::sort(tempEvents.begin(), tempEvents.end(), 
         [] (const std::unique_ptr<Event>& left, const std::unique_ptr<Event>& right) {
@@ -250,14 +272,11 @@ void TrackingSystem::CalculateIncome()
     for (auto &&table : m_tables)
     {
         int usageTime = 0;
-        for (auto &&client : m_clientList)
+        for (size_t i = 0; i < m_tableUsageSessions.size(); i++)
         {
-            for (size_t i = 0; i < client->tableUsageSessions.size(); i++)
+            if (table->id == m_tableUsageSessions[i]->tableId)
             {
-                if (client->tableUsageSessions[i]->tableId == table->id)
-                {
-                    usageTime += client->tableUsageSessions[i]->endTime - client->tableUsageSessions[i]->startTime;
-                }
+                usageTime += m_tableUsageSessions[i]->endTime - m_tableUsageSessions[i]->startTime;
             }
         }
         

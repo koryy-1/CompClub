@@ -16,11 +16,18 @@ void Console::Output(
         
         if (event->id == 13)
         {
-            std::cout << event->error.name;
+            if (!event->error.name.empty())
+                std::cout << event->error.name;
+            else
+                std::cout << "<error_unknown>";
         }
         else
         {
-            std::cout << event->clientName;
+            if (!event->clientName.empty())
+                std::cout << event->clientName;
+            else
+                std::cout << "<unknown_client>";
+            
 
             if (event->id == 2 || event->id == 12)
                 std::cout << " " << event->tableId;
@@ -40,10 +47,11 @@ void Console::Output(
     }
 }
 
-std::string Console::FormatTime(int time) {
+std::string Console::FormatTime(int time)
+{
     std::ostringstream oss;
-    int hours = time / 60; // Часы
-    int mins = time % 60;  // Минуты
+    int hours = time / 60;
+    int mins = time % 60;
     oss << std::setw(2) << std::setfill('0') << hours << ":" 
         << std::setw(2) << std::setfill('0') << mins;
     
