@@ -13,8 +13,16 @@ public:
 
 private:
     void InitializeTables();
+
     void Handle();
+    void HandleClientArrival(const Event& curEvent);
+    void HandleClientSatDownAtTable(const Event& curEvent);
+    void HandleClientIsWaiting(const Event& curEvent);
+    void HandleClientIsGone(const Event& curEvent);
+    void HandleClosingOfClub();
+
     void CalculateIncome();
+    
     std::unique_ptr<Event> CreateEvent(int time, int id, const std::string& clientName, int tableId);
     std::unique_ptr<Event> CreateErrorEvent(int time, const std::string& errorName);
 
