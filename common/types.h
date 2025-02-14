@@ -15,6 +15,21 @@ enum EventId
     ErrorOccurred = 13,
 };
 
+enum EventError
+{
+    YouShallNotPass,
+    NotOpenYet,
+
+    PlaceIsBusy,
+    ClientUnknown,
+    
+    ICanWaitNoLonger,
+
+    // новые ошибки
+    ClientHasAlreadyGone,
+    WhyGetOnWaitingList
+};
+
 struct CompClubConfig
 {
     uint32_t tableCount;
@@ -53,12 +68,6 @@ struct Event
     Error error;
     std::string clientName;
     uint32_t tableId;
-};
-
-struct EventLog
-{
-    CompClubConfig config;
-    std::vector<std::unique_ptr<Event>> events;
 };
 
 struct Table

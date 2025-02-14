@@ -64,14 +64,25 @@ void TrackingSystem::HandleClientArrival(const Event& curEvent)
     {
         std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "NotOpenYet");
         m_generatedEvents.push_back(std::move(event));
+        return;
     }
-    else if (Utils::FindClientIndexByName(m_clientList, curEvent.clientName) != -1)
+
+    int clientIndex = Utils::FindClientIndexByName(m_clientList, curEvent.clientName);
+    if (clientIndex != -1 && m_clientList[clientIndex]->isInsideClub)
     {
         std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "YouShallNotPass");
         m_generatedEvents.push_back(std::move(event));
+        return;
+    }
+
+    // проверяем что клиент уже есть в списке
+    if (clientIndex != -1)
+    {
+        m_clientList[clientIndex]->isInsideClub = true;
     }
     else
     {
+        // если не найден, регаем нового
         std::unique_ptr<Client> client = std::make_unique<Client>();
         client->name = curEvent.clientName;
         client->isInsideClub = true;
@@ -85,6 +96,13 @@ void TrackingSystem::HandleClientSatDownAtTable(const Event& curEvent)
     if (clientIndex == -1)
     {
         std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "ClientUnknown");
+        m_generatedEvents.push_back(std::move(event));
+        return;
+    }
+
+    if (!m_clientList[clientIndex]->isInsideClub)
+    {
+        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "ClientHasAlreadyGone");
         m_generatedEvents.push_back(std::move(event));
         return;
     }
@@ -134,6 +152,20 @@ void TrackingSystem::HandleClientIsWaiting(const Event& curEvent)
         m_generatedEvents.push_back(std::move(event));
         return;
     }
+    
+    if (!m_clientList[clientIndex]->isInsideClub)
+    {
+        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "ClientHasAlreadyGone");
+        m_generatedEvents.push_back(std::move(event));
+        return;
+    }
+
+    if (m_clientList[clientIndex]->occupiedTableId != 0) // если клиент уже занял стол
+    {
+        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "WhyGetOnWaitingList?");
+        m_generatedEvents.push_back(std::move(event));
+        return;
+    }
 
     if (Utils::FindTableIndex(m_tables, false) != -1)
     {
@@ -164,42 +196,54 @@ void TrackingSystem::HandleClientIsGone(const Event& curEvent)
         return;
     }
     
-    uint32_t curTableId = m_clientList[clientIndex]->occupiedTableId;
-
-    m_tables[curTableId - 1]->usageSession.endTime = curEvent.time;
-
-    std::unique_ptr<TableUsageSession> session = std::make_unique<TableUsageSession>(
-        curTableId,
-        m_tables[curTableId - 1]->usageSession.startTime,
-        m_tables[curTableId - 1]->usageSession.endTime
-    );
-    m_tableUsageSessions.push_back(std::move(session));
-
-    m_clientList[clientIndex]->occupiedTableId = 0;
-    m_clientList[clientIndex]->isInsideClub = false;
-
-    if (m_queue.empty())
+    if (!m_clientList[clientIndex]->isInsideClub)
     {
-        m_tables[curTableId - 1]->isBusy = false;
-    }
-    else
-    {
-        std::shared_ptr<Client> clientFromQueue = m_queue.front();
-        m_queue.pop();
-
-        m_tables[curTableId - 1]
-            ->usageSession = TableUsageSession(curTableId, curEvent.time, 0);
-
-        clientFromQueue->occupiedTableId = curTableId;
-
-        std::unique_ptr<Event> event = CreateEvent(
-            curEvent.time,
-            ClientSatDownAtTableGenerated,
-            clientFromQueue->name,
-            curTableId
-        );
+        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "ClientHasAlreadyGone");
         m_generatedEvents.push_back(std::move(event));
+        return;
     }
+    
+    uint32_t occupiedTableId = m_clientList[clientIndex]->occupiedTableId;
+
+    // проверить что клиент сидел за столом
+    if (occupiedTableId != 0)
+    {
+        m_tables[occupiedTableId - 1]->usageSession.endTime = curEvent.time;
+
+        std::unique_ptr<TableUsageSession> session = std::make_unique<TableUsageSession>(
+            occupiedTableId,
+            m_tables[occupiedTableId - 1]->usageSession.startTime,
+            m_tables[occupiedTableId - 1]->usageSession.endTime
+        );
+        m_tableUsageSessions.push_back(std::move(session));
+
+        m_clientList[clientIndex]->occupiedTableId = 0;
+
+        if (m_queue.empty())
+        {
+            m_tables[occupiedTableId - 1]->isBusy = false;
+        }
+        else
+        {
+            std::shared_ptr<Client> clientFromQueue = m_queue.front();
+            m_queue.pop();
+
+            m_tables[occupiedTableId - 1]
+                ->usageSession = TableUsageSession(occupiedTableId, curEvent.time, 0);
+
+            clientFromQueue->occupiedTableId = occupiedTableId;
+
+            std::unique_ptr<Event> event = CreateEvent(
+                curEvent.time,
+                ClientSatDownAtTableGenerated,
+                clientFromQueue->name,
+                occupiedTableId
+            );
+            m_generatedEvents.push_back(std::move(event));
+        }
+    }
+
+    m_clientList[clientIndex]->isInsideClub = false;
 }
 
 void TrackingSystem::HandleClosingOfClub()
