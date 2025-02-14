@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <map>
 
 enum EventId
 {
@@ -56,16 +57,11 @@ struct Client
     uint32_t occupiedTableId; // номер стола, занятого клиентом, если клиент не занимает стол, то = 0
 };
 
-struct Error
-{
-    std::string name;
-};
-
 struct Event
 {
     int id;
     int time;
-    Error error;
+    EventError eventError;
     std::string clientName;
     uint32_t tableId;
 };

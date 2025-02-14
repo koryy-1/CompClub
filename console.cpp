@@ -16,8 +16,8 @@ void Console::Output(
         
         if (event->id == 13)
         {
-            if (!event->error.name.empty())
-                std::cout << event->error.name;
+            if (m_eventErrorMap.count(event->eventError) != 0)
+                std::cout << m_eventErrorMap[event->eventError];
             else
                 std::cout << "<error_unknown>";
         }

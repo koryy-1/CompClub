@@ -62,7 +62,7 @@ void TrackingSystem::HandleClientArrival(const Event& curEvent)
 {
     if (m_config.startTime > curEvent.time)
     {
-        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "NotOpenYet");
+        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, NotOpenYet);
         m_generatedEvents.push_back(std::move(event));
         return;
     }
@@ -70,7 +70,7 @@ void TrackingSystem::HandleClientArrival(const Event& curEvent)
     int clientIndex = Utils::FindClientIndexByName(m_clientList, curEvent.clientName);
     if (clientIndex != -1 && m_clientList[clientIndex]->isInsideClub)
     {
-        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "YouShallNotPass");
+        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, YouShallNotPass);
         m_generatedEvents.push_back(std::move(event));
         return;
     }
@@ -95,21 +95,21 @@ void TrackingSystem::HandleClientSatDownAtTable(const Event& curEvent)
     int clientIndex = Utils::FindClientIndexByName(m_clientList, curEvent.clientName);
     if (clientIndex == -1)
     {
-        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "ClientUnknown");
+        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, ClientUnknown);
         m_generatedEvents.push_back(std::move(event));
         return;
     }
 
     if (!m_clientList[clientIndex]->isInsideClub)
     {
-        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "ClientHasAlreadyGone");
+        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, ClientHasAlreadyGone);
         m_generatedEvents.push_back(std::move(event));
         return;
     }
 
     if (m_tables[curEvent.tableId - 1]->isBusy)
     {
-        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "PlaceIsBusy");
+        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, PlaceIsBusy);
         m_generatedEvents.push_back(std::move(event));
         return;
     }
@@ -148,28 +148,28 @@ void TrackingSystem::HandleClientIsWaiting(const Event& curEvent)
     int clientIndex = Utils::FindClientIndexByName(m_clientList, curEvent.clientName);
     if (clientIndex == -1)
     {
-        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "ClientUnknown");
+        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, ClientUnknown);
         m_generatedEvents.push_back(std::move(event));
         return;
     }
     
     if (!m_clientList[clientIndex]->isInsideClub)
     {
-        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "ClientHasAlreadyGone");
+        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, ClientHasAlreadyGone);
         m_generatedEvents.push_back(std::move(event));
         return;
     }
 
     if (m_clientList[clientIndex]->occupiedTableId != 0) // если клиент уже занял стол
     {
-        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "WhyGetOnWaitingList?");
+        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, WhyGetOnWaitingList);
         m_generatedEvents.push_back(std::move(event));
         return;
     }
 
     if (Utils::FindTableIndex(m_tables, false) != -1)
     {
-        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "ICanWaitNoLonger!");
+        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, ICanWaitNoLonger);
         m_generatedEvents.push_back(std::move(event));
         return;
     }
@@ -191,14 +191,14 @@ void TrackingSystem::HandleClientIsGone(const Event& curEvent)
     int clientIndex = Utils::FindClientIndexByName(m_clientList, curEvent.clientName);
     if (clientIndex == -1)
     {
-        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "ClientUnknown");
+        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, ClientUnknown);
         m_generatedEvents.push_back(std::move(event));
         return;
     }
     
     if (!m_clientList[clientIndex]->isInsideClub)
     {
-        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, "ClientHasAlreadyGone");
+        std::unique_ptr<Event> event = CreateErrorEvent(curEvent.time, ClientHasAlreadyGone);
         m_generatedEvents.push_back(std::move(event));
         return;
     }
@@ -320,12 +320,12 @@ std::unique_ptr<Event> TrackingSystem::CreateEvent(int time, int id, const std::
     return event;
 }
 
-std::unique_ptr<Event> TrackingSystem::CreateErrorEvent(int time, const std::string& errorName)
+std::unique_ptr<Event> TrackingSystem::CreateErrorEvent(int time, EventError eventError)
 {
     std::unique_ptr<Event> event = std::make_unique<Event>();
     event->time = time;
     event->id = ErrorOccurred;
-    event->error.name = errorName;
+    event->eventError = eventError;
     return event;
 }
 

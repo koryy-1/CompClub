@@ -24,7 +24,7 @@ private:
     void CalculateIncome();
     
     std::unique_ptr<Event> CreateEvent(int time, int id, const std::string& clientName, int tableId);
-    std::unique_ptr<Event> CreateErrorEvent(int time, const std::string& errorName);
+    std::unique_ptr<Event> CreateErrorEvent(int time, EventError eventError);
 
     CompClubConfig m_config;
     std::vector<std::unique_ptr<Event>> m_events;
